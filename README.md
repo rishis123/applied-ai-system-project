@@ -17,17 +17,97 @@ Replace this paragraph with your own summary of what your version does.
 
 ## How The System Works
 
-Explain your design in plain language.
+Real-world recommenders like Spotify or YouTube learn your preferences from thousands of signals — skips, replays, saves, time of day — and combine them across millions of users to surface music you didn't know you needed. They blend collaborative filtering (finding listeners who behave like you) with content-based filtering (matching the audio fingerprint of songs you already love), and layer in context like whether you're working out or winding down. This simulation focuses on the content-based side of that pipeline. Rather than tracking behavior across users, it works from a single user's declared taste profile — preferred genre, mood, and energy level — and scores every song in the catalog by proximity to those preferences. A weighted formula rewards exact genre and mood matches most heavily, then grades numeric features like energy by how close a song's value is to the user's target (closer = higher score, not simply higher or lower). The top-k songs by final score become the recommendation. This prioritizes transparency and explainability: every score can be broken down into exactly which features matched and by how much, which mirrors the "Because you liked..." explanations real platforms surface to users.
 
-Some prompts to answer:
+**Song features used:** `genre`, `mood`, `energy`
 
-- What features does each `Song` use in your system
-  - For example: genre, mood, energy, tempo
-- What information does your `UserProfile` store
-- How does your `Recommender` compute a score for each song
-- How do you choose which songs to recommend
+**User profile stores:** `favorite_genre`, `favorite_mood`, `target_energy`
 
-You can include a simple diagram or bullet list if helpful.
+**Scoring:** genre match (+2.0) + mood match (+1.0) + energy proximity (1 − |song.energy − target_energy|, range 0–1.0), max score 4.0
+
+**Ranking:** all songs scored independently, sorted descending, top-k returned
+
+### Algorithm Recipe
+
+1. **Load** — read `data/songs.csv` into a list of song dictionaries, casting numeric columns (`energy`, `tempo_bpm`, `valence`, `danceability`, `acousticness`) to `float`.
+2. **Score each song** — for every song in the catalog, compute a score against the user profile:
+   - +2.0 if `song.genre` exactly matches `user.favorite_genre`
+   - +1.0 if `song.mood` exactly matches `user.favorite_mood`
+   - +`(1.0 − |song.energy − user.target_energy|)` as a continuous energy-proximity bonus (always between 0.0 and 1.0)
+3. **Rank** — sort all scored songs in descending order by total score.
+4. **Return top-K** — slice the sorted list to the requested `k` and pair each result with its score and a plain-English explanation string.
+
+### Potential Biases
+
+- **Genre dominance.** The +2.0 genre bonus is double the mood bonus and double the maximum energy bonus combined. A song with a matching genre but the wrong mood and opposite energy (score ≈ 2.0) will always rank above a song with a matching mood *and* close energy but the wrong genre (score ≈ 1.9). A user who loves jazz but is in the mood to relax may receive high-energy jazz over a perfectly calm ambient track.
+- **Exact-match brittleness.** Genre and mood are compared as literal strings. A song tagged `"lo-fi"` will never match a preference of `"lofi"`, and a song tagged `"relaxed"` scores zero on a `"chill"` preference even though the two moods are nearly synonymous.
+- **Energy-range blindness.** The energy score rewards proximity symmetrically — a song 0.2 above the target scores the same as one 0.2 below. This treats a high-tempo overshoot the same as a low-tempo undershoot, which may not match how listeners actually experience energy mismatch.
+- **Catalog size effect.** With only a small number of songs, a single dominant genre (e.g., several lofi tracks) can fill most of the top-K slots for any lofi user, leaving no room for mood or energy diversity.
+
+---
+
+## Data Flow
+
+```mermaid
+flowchart TD
+    A["Input: User Preferences\n─────────────────────\nfavorite_genre\nfavorite_mood\ntarget_energy"] --> B
+
+    subgraph B["Process: Score Every Song in songs.csv"]
+        direction TB
+        C["For each song in catalog"] --> D{"genre ==\nfavorite_genre?"}
+        D -- "Yes → +2.0" --> E{"mood ==\nfavorite_mood?"}
+        D -- "No → +0.0" --> E
+        E -- "Yes → +1.0" --> F["Energy Similarity\n1 − |song.energy − target_energy|"]
+        E -- "No → +0.0" --> F
+        F --> G["Total Score for this song"]
+        G --> C
+    end
+
+    B --> H["Output: Top-K Recommendations\n──────────────────────────────\nSort all songs by score (descending)\nReturn top K results with explanations"]
+```
+
+Copy Pasted Output (in lieu of screenshot for default pop/happy in step 4)
+
+
+% python -m src.main
+Loaded songs: 20
+
+Top 5 recommendations for profile {'genre': 'pop', 'mood': 'happy', 'energy': 0.8}:
+
+--------------------------------------------------
+#1  Sunrise City by Neon Echo
+    Score : 3.98 / 4.00
+    Why   :
+            • genre match (pop, +2.0)
+            • mood match (happy, +1.0)
+            • energy similarity 0.98 (song=0.82, target=0.8)
+--------------------------------------------------
+#2  Gym Hero by Max Pulse
+    Score : 2.87 / 4.00
+    Why   :
+            • genre match (pop, +2.0)
+            • energy similarity 0.87 (song=0.93, target=0.8)
+--------------------------------------------------
+#3  Rooftop Lights by Indigo Parade
+    Score : 1.96 / 4.00
+    Why   :
+            • mood match (happy, +1.0)
+            • energy similarity 0.96 (song=0.76, target=0.8)
+--------------------------------------------------
+#4  Neon Sermon by Glitch Pastor
+    Score : 1.00 / 4.00
+    Why   :
+            • energy similarity 1.00 (song=0.8, target=0.8)
+--------------------------------------------------
+#5  Bounce Theory by Def Cadence
+    Score : 0.96 / 4.00
+    Why   :
+            • energy similarity 0.96 (song=0.84, target=0.8)
+--------------------------------------------------
+
+
+
+
 
 ---
 
