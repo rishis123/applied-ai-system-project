@@ -43,10 +43,10 @@ class Recommender:
         """Return a numeric score for one song against a UserProfile (max 4.0)."""
         score = 0.0
         if song.genre == user.favorite_genre:
-            score += 2.0
+            score += 1.0                                          # halved: was 2.0
         if song.mood == user.favorite_mood:
             score += 1.0
-        score += 1.0 - abs(song.energy - user.target_energy)
+        score += 2.0 * (1.0 - abs(song.energy - user.target_energy))  # doubled: was ×1
         return score
 
     def recommend(self, user: UserProfile, k: int = 5) -> List[Song]:
@@ -94,19 +94,20 @@ def score_song(user_prefs: Dict, song: Dict) -> Tuple[float, List[str]]:
     score = 0.0
     reasons = []
 
-    # +2.0 for an exact genre match
+    # +1.0 for an exact genre match (halved from 2.0 — energy is now the dominant signal)
     if song["genre"] == user_prefs.get("genre", ""):
-        score += 2.0
-        reasons.append(f"genre match ({song['genre']}, +2.0)")
+        score += 1.0
+        reasons.append(f"genre match ({song['genre']}, +1.0)")
 
     # +1.0 for an exact mood match
     if song["mood"] == user_prefs.get("mood", ""):
         score += 1.0
         reasons.append(f"mood match ({song['mood']}, +1.0)")
 
-    # 0.0–1.0 based on how close the song's energy is to the user's target
-    # closer = higher score; formula: 1 - |song.energy - target_energy|
-    energy_sim = 1.0 - abs(song["energy"] - user_prefs.get("energy", 0.5))
+    # 0.0–2.0 based on how close the song's energy is to the user's target
+    # doubled weight so energy proximity is now the strongest single signal
+    # formula: 2 * (1 - |song.energy - target_energy|)
+    energy_sim = 2.0 * (1.0 - abs(song["energy"] - user_prefs.get("energy", 0.5)))
     score += energy_sim
     reasons.append(
         f"energy similarity {energy_sim:.2f} "

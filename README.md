@@ -66,7 +66,7 @@ flowchart TD
     B --> H["Output: Top-K Recommendations\n──────────────────────────────\nSort all songs by score (descending)\nReturn top K results with explanations"]
 ```
 
-Copy Pasted Output (in lieu of screenshot for default pop/happy in step 4)
+Copy Pasted Output (in lieu of screenshot for default pop/happy in phase 3 step 4)
 
 
 % python -m src.main
@@ -104,6 +104,193 @@ Top 5 recommendations for profile {'genre': 'pop', 'mood': 'happy', 'energy': 0.
     Why   :
             • energy similarity 0.96 (song=0.84, target=0.8)
 --------------------------------------------------
+
+
+Phase 4 terminal output
+----------------------
+
+% python -m src.main
+Loaded songs: 20
+
+======================================================
+  Profile : High-Energy Pop
+  Prefs   : {'genre': 'pop', 'mood': 'happy', 'energy': 0.9}
+======================================================
+  #1  Sunrise City by Neon Echo
+      Score : 3.92 / 4.00
+              • genre match (pop, +2.0)
+              • mood match (happy, +1.0)
+              • energy similarity 0.92 (song=0.82, target=0.9)
+  ----------------------------------------------------
+  #2  Gym Hero by Max Pulse
+      Score : 2.97 / 4.00
+              • genre match (pop, +2.0)
+              • energy similarity 0.97 (song=0.93, target=0.9)
+  ----------------------------------------------------
+  #3  Rooftop Lights by Indigo Parade
+      Score : 1.86 / 4.00
+              • mood match (happy, +1.0)
+              • energy similarity 0.86 (song=0.76, target=0.9)
+  ----------------------------------------------------
+  #4  Storm Runner by Voltline
+      Score : 0.99 / 4.00
+              • energy similarity 0.99 (song=0.91, target=0.9)
+  ----------------------------------------------------
+  #5  Carnival Lights by Los Fuegos
+      Score : 0.97 / 4.00
+              • energy similarity 0.97 (song=0.87, target=0.9)
+  ----------------------------------------------------
+
+======================================================
+  Profile : Chill Lofi
+  Prefs   : {'genre': 'lofi', 'mood': 'chill', 'energy': 0.35}
+======================================================
+  #1  Library Rain by Paper Lanterns
+      Score : 4.00 / 4.00
+              • genre match (lofi, +2.0)
+              • mood match (chill, +1.0)
+              • energy similarity 1.00 (song=0.35, target=0.35)
+  ----------------------------------------------------
+  #2  Midnight Coding by LoRoom
+      Score : 3.93 / 4.00
+              • genre match (lofi, +2.0)
+              • mood match (chill, +1.0)
+              • energy similarity 0.93 (song=0.42, target=0.35)
+  ----------------------------------------------------
+  #3  Focus Flow by LoRoom
+      Score : 2.95 / 4.00
+              • genre match (lofi, +2.0)
+              • energy similarity 0.95 (song=0.4, target=0.35)
+  ----------------------------------------------------
+  #4  Spacewalk Thoughts by Orbit Bloom
+      Score : 1.93 / 4.00
+              • mood match (chill, +1.0)
+              • energy similarity 0.93 (song=0.28, target=0.35)
+  ----------------------------------------------------
+  #5  Coffee Shop Stories by Slow Stereo
+      Score : 0.98 / 4.00
+              • energy similarity 0.98 (song=0.37, target=0.35)
+  ----------------------------------------------------
+
+======================================================
+  Profile : Deep Intense Rock
+  Prefs   : {'genre': 'rock', 'mood': 'intense', 'energy': 0.95}
+======================================================
+  #1  Storm Runner by Voltline
+      Score : 3.96 / 4.00
+              • genre match (rock, +2.0)
+              • mood match (intense, +1.0)
+              • energy similarity 0.96 (song=0.91, target=0.95)
+  ----------------------------------------------------
+  #2  Gym Hero by Max Pulse
+      Score : 1.98 / 4.00
+              • mood match (intense, +1.0)
+              • energy similarity 0.98 (song=0.93, target=0.95)
+  ----------------------------------------------------
+  #3  Hardwired by Iron Circuit
+      Score : 0.98 / 4.00
+              • energy similarity 0.98 (song=0.97, target=0.95)
+  ----------------------------------------------------
+  #4  Carnival Lights by Los Fuegos
+      Score : 0.92 / 4.00
+              • energy similarity 0.92 (song=0.87, target=0.95)
+  ----------------------------------------------------
+  #5  Bounce Theory by Def Cadence
+      Score : 0.89 / 4.00
+              • energy similarity 0.89 (song=0.84, target=0.95)
+  ----------------------------------------------------
+
+======================================================
+  Profile : Conflicting: High-Energy but Chill Mood
+  Prefs   : {'genre': 'ambient', 'mood': 'chill', 'energy': 0.95}
+======================================================
+  #1  Spacewalk Thoughts by Orbit Bloom
+      Score : 3.33 / 4.00
+              • genre match (ambient, +2.0)
+              • mood match (chill, +1.0)
+              • energy similarity 0.33 (song=0.28, target=0.95)
+  ----------------------------------------------------
+  #2  Midnight Coding by LoRoom
+      Score : 1.47 / 4.00
+              • mood match (chill, +1.0)
+              • energy similarity 0.47 (song=0.42, target=0.95)
+  ----------------------------------------------------
+  #3  Library Rain by Paper Lanterns
+      Score : 1.40 / 4.00
+              • mood match (chill, +1.0)
+              • energy similarity 0.40 (song=0.35, target=0.95)
+  ----------------------------------------------------
+  #4  Gym Hero by Max Pulse
+      Score : 0.98 / 4.00
+              • energy similarity 0.98 (song=0.93, target=0.95)
+  ----------------------------------------------------
+  #5  Hardwired by Iron Circuit
+      Score : 0.98 / 4.00
+              • energy similarity 0.98 (song=0.97, target=0.95)
+  ----------------------------------------------------
+
+======================================================
+  Profile : Ghost Genre (country)
+  Prefs   : {'genre': 'country', 'mood': 'happy', 'energy': 0.7}
+======================================================
+  #1  Rooftop Lights by Indigo Parade
+      Score : 1.94 / 4.00
+              • mood match (happy, +1.0)
+              • energy similarity 0.94 (song=0.76, target=0.7)
+  ----------------------------------------------------
+  #2  Sunrise City by Neon Echo
+      Score : 1.88 / 4.00
+              • mood match (happy, +1.0)
+              • energy similarity 0.88 (song=0.82, target=0.7)
+  ----------------------------------------------------
+  #3  Night Drive Loop by Neon Echo
+      Score : 0.95 / 4.00
+              • energy similarity 0.95 (song=0.75, target=0.7)
+  ----------------------------------------------------
+  #4  Soul Kitchen by Velvet Browne
+      Score : 0.92 / 4.00
+              • energy similarity 0.92 (song=0.62, target=0.7)
+  ----------------------------------------------------
+  #5  Empty Hallways by Grayscale Theory
+      Score : 0.90 / 4.00
+              • energy similarity 0.90 (song=0.6, target=0.7)
+  ----------------------------------------------------
+
+======================================================
+  Profile : Floor Energy
+  Prefs   : {'genre': 'lofi', 'mood': 'focused', 'energy': 0.0}
+======================================================
+  #1  Focus Flow by LoRoom
+      Score : 3.60 / 4.00
+              • genre match (lofi, +2.0)
+              • mood match (focused, +1.0)
+              • energy similarity 0.60 (song=0.4, target=0.0)
+  ----------------------------------------------------
+  #2  Library Rain by Paper Lanterns
+      Score : 2.65 / 4.00
+              • genre match (lofi, +2.0)
+              • energy similarity 0.65 (song=0.35, target=0.0)
+  ----------------------------------------------------
+  #3  Midnight Coding by LoRoom
+      Score : 2.58 / 4.00
+              • genre match (lofi, +2.0)
+              • energy similarity 0.58 (song=0.42, target=0.0)
+  ----------------------------------------------------
+  #4  Glacier Blue by Fjord Ensemble
+      Score : 0.80 / 4.00
+              • energy similarity 0.80 (song=0.2, target=0.0)
+  ----------------------------------------------------
+  #5  Bamboo Wind by Koto Dreams
+      Score : 0.75 / 4.00
+              • energy similarity 0.75 (song=0.25, target=0.0)
+  ----------------------------------------------------
+
+
+
+
+
+
+
 
 
 
