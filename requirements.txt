@@ -1,3 +1,11 @@
-pandas
+pandas==2.2.3
 pytest
-streamlit
+sentence-transformers==3.1.1
+chromadb==0.5.15
+google-genai>=1.10.0
+python-dotenv==1.0.1
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic>=2.0
+scikit-learn>=1.0
+numpy>=1.26

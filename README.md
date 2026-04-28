@@ -1,478 +1,162 @@
-# 🎵 Music Recommender Simulation
+# WaveFinder: Music Recommender driven by RAG and Semantic-Search 
 
-## Project Summary
-
-In this project you will build and explain a small music recommender system.
-
-Your goal is to:
-
-- Represent songs and a user "taste profile" as data
-- Design a scoring rule that turns that data into recommendations
-- Evaluate what your system gets right and wrong
-- Reflect on how this mirrors real world AI recommenders
-
-Replace this paragraph with your own summary of what your version does.
+## Project Context
+**WaveFinder** was originally developed as a CLI tool, with limited music options, that recommends music based on proximity to several numerical fields, including energy and tempo. It was very limited in capacity and scope, and lacked insight based on genre and semantics.
 
 ---
 
-## How The System Works
-
-Real-world recommenders like Spotify or YouTube learn your preferences from thousands of signals — skips, replays, saves, time of day — and combine them across millions of users to surface music you didn't know you needed. They blend collaborative filtering (finding listeners who behave like you) with content-based filtering (matching the audio fingerprint of songs you already love), and layer in context like whether you're working out or winding down. This simulation focuses on the content-based side of that pipeline. Rather than tracking behavior across users, it works from a single user's declared taste profile — preferred genre, mood, and energy level — and scores every song in the catalog by proximity to those preferences. A weighted formula rewards exact genre and mood matches most heavily, then grades numeric features like energy by how close a song's value is to the user's target (closer = higher score, not simply higher or lower). The top-k songs by final score become the recommendation. This prioritizes transparency and explainability: every score can be broken down into exactly which features matched and by how much, which mirrors the "Because you liked..." explanations real platforms surface to users.
-
-**Song features used:** `genre`, `mood`, `energy`
-
-**User profile stores:** `favorite_genre`, `favorite_mood`, `target_energy`
-
-**Scoring:** genre match (+2.0) + mood match (+1.0) + energy proximity (1 − |song.energy − target_energy|, range 0–1.0), max score 4.0
-
-**Ranking:** all songs scored independently, sorted descending, top-k returned
-
-### Algorithm Recipe
-
-1. **Load** — read `data/songs.csv` into a list of song dictionaries, casting numeric columns (`energy`, `tempo_bpm`, `valence`, `danceability`, `acousticness`) to `float`.
-2. **Score each song** — for every song in the catalog, compute a score against the user profile:
-   - +2.0 if `song.genre` exactly matches `user.favorite_genre`
-   - +1.0 if `song.mood` exactly matches `user.favorite_mood`
-   - +`(1.0 − |song.energy − user.target_energy|)` as a continuous energy-proximity bonus (always between 0.0 and 1.0)
-3. **Rank** — sort all scored songs in descending order by total score.
-4. **Return top-K** — slice the sorted list to the requested `k` and pair each result with its score and a plain-English explanation string.
-
-### Potential Biases
-
-- **Genre dominance.** The +2.0 genre bonus is double the mood bonus and double the maximum energy bonus combined. A song with a matching genre but the wrong mood and opposite energy (score ≈ 2.0) will always rank above a song with a matching mood *and* close energy but the wrong genre (score ≈ 1.9). A user who loves jazz but is in the mood to relax may receive high-energy jazz over a perfectly calm ambient track.
-- **Exact-match brittleness.** Genre and mood are compared as literal strings. A song tagged `"lo-fi"` will never match a preference of `"lofi"`, and a song tagged `"relaxed"` scores zero on a `"chill"` preference even though the two moods are nearly synonymous.
-- **Energy-range blindness.** The energy score rewards proximity symmetrically — a song 0.2 above the target scores the same as one 0.2 below. This treats a high-tempo overshoot the same as a low-tempo undershoot, which may not match how listeners actually experience energy mismatch.
-- **Catalog size effect.** With only a small number of songs, a single dominant genre (e.g., several lofi tracks) can fill most of the top-K slots for any lofi user, leaving no room for mood or energy diversity.
-
----
-
-## Data Flow
-
-```mermaid
-flowchart TD
-    A["Input: User Preferences\n─────────────────────\nfavorite_genre\nfavorite_mood\ntarget_energy"] --> B
-
-    subgraph B["Process: Score Every Song in songs.csv"]
-        direction TB
-        C["For each song in catalog"] --> D{"genre ==\nfavorite_genre?"}
-        D -- "Yes → +2.0" --> E{"mood ==\nfavorite_mood?"}
-        D -- "No → +0.0" --> E
-        E -- "Yes → +1.0" --> F["Energy Similarity\n1 − |song.energy − target_energy|"]
-        E -- "No → +0.0" --> F
-        F --> G["Total Score for this song"]
-        G --> C
-    end
-
-    B --> H["Output: Top-K Recommendations\n──────────────────────────────\nSort all songs by score (descending)\nReturn top K results with explanations"]
-```
-
-Copy Pasted Output (in lieu of screenshot for default pop/happy in phase 3 step 4)
-
-
-% python -m src.main
-Loaded songs: 20
-
-Top 5 recommendations for profile {'genre': 'pop', 'mood': 'happy', 'energy': 0.8}:
-
---------------------------------------------------
-#1  Sunrise City by Neon Echo
-    Score : 3.98 / 4.00
-    Why   :
-            • genre match (pop, +2.0)
-            • mood match (happy, +1.0)
-            • energy similarity 0.98 (song=0.82, target=0.8)
---------------------------------------------------
-#2  Gym Hero by Max Pulse
-    Score : 2.87 / 4.00
-    Why   :
-            • genre match (pop, +2.0)
-            • energy similarity 0.87 (song=0.93, target=0.8)
---------------------------------------------------
-#3  Rooftop Lights by Indigo Parade
-    Score : 1.96 / 4.00
-    Why   :
-            • mood match (happy, +1.0)
-            • energy similarity 0.96 (song=0.76, target=0.8)
---------------------------------------------------
-#4  Neon Sermon by Glitch Pastor
-    Score : 1.00 / 4.00
-    Why   :
-            • energy similarity 1.00 (song=0.8, target=0.8)
---------------------------------------------------
-#5  Bounce Theory by Def Cadence
-    Score : 0.96 / 4.00
-    Why   :
-            • energy similarity 0.96 (song=0.84, target=0.8)
---------------------------------------------------
-
-
-Phase 4 terminal output
-----------------------
-
-% python -m src.main
-Loaded songs: 20
-
-======================================================
-  Profile : High-Energy Pop
-  Prefs   : {'genre': 'pop', 'mood': 'happy', 'energy': 0.9}
-======================================================
-  #1  Sunrise City by Neon Echo
-      Score : 3.92 / 4.00
-              • genre match (pop, +2.0)
-              • mood match (happy, +1.0)
-              • energy similarity 0.92 (song=0.82, target=0.9)
-  ----------------------------------------------------
-  #2  Gym Hero by Max Pulse
-      Score : 2.97 / 4.00
-              • genre match (pop, +2.0)
-              • energy similarity 0.97 (song=0.93, target=0.9)
-  ----------------------------------------------------
-  #3  Rooftop Lights by Indigo Parade
-      Score : 1.86 / 4.00
-              • mood match (happy, +1.0)
-              • energy similarity 0.86 (song=0.76, target=0.9)
-  ----------------------------------------------------
-  #4  Storm Runner by Voltline
-      Score : 0.99 / 4.00
-              • energy similarity 0.99 (song=0.91, target=0.9)
-  ----------------------------------------------------
-  #5  Carnival Lights by Los Fuegos
-      Score : 0.97 / 4.00
-              • energy similarity 0.97 (song=0.87, target=0.9)
-  ----------------------------------------------------
-
-======================================================
-  Profile : Chill Lofi
-  Prefs   : {'genre': 'lofi', 'mood': 'chill', 'energy': 0.35}
-======================================================
-  #1  Library Rain by Paper Lanterns
-      Score : 4.00 / 4.00
-              • genre match (lofi, +2.0)
-              • mood match (chill, +1.0)
-              • energy similarity 1.00 (song=0.35, target=0.35)
-  ----------------------------------------------------
-  #2  Midnight Coding by LoRoom
-      Score : 3.93 / 4.00
-              • genre match (lofi, +2.0)
-              • mood match (chill, +1.0)
-              • energy similarity 0.93 (song=0.42, target=0.35)
-  ----------------------------------------------------
-  #3  Focus Flow by LoRoom
-      Score : 2.95 / 4.00
-              • genre match (lofi, +2.0)
-              • energy similarity 0.95 (song=0.4, target=0.35)
-  ----------------------------------------------------
-  #4  Spacewalk Thoughts by Orbit Bloom
-      Score : 1.93 / 4.00
-              • mood match (chill, +1.0)
-              • energy similarity 0.93 (song=0.28, target=0.35)
-  ----------------------------------------------------
-  #5  Coffee Shop Stories by Slow Stereo
-      Score : 0.98 / 4.00
-              • energy similarity 0.98 (song=0.37, target=0.35)
-  ----------------------------------------------------
-
-======================================================
-  Profile : Deep Intense Rock
-  Prefs   : {'genre': 'rock', 'mood': 'intense', 'energy': 0.95}
-======================================================
-  #1  Storm Runner by Voltline
-      Score : 3.96 / 4.00
-              • genre match (rock, +2.0)
-              • mood match (intense, +1.0)
-              • energy similarity 0.96 (song=0.91, target=0.95)
-  ----------------------------------------------------
-  #2  Gym Hero by Max Pulse
-      Score : 1.98 / 4.00
-              • mood match (intense, +1.0)
-              • energy similarity 0.98 (song=0.93, target=0.95)
-  ----------------------------------------------------
-  #3  Hardwired by Iron Circuit
-      Score : 0.98 / 4.00
-              • energy similarity 0.98 (song=0.97, target=0.95)
-  ----------------------------------------------------
-  #4  Carnival Lights by Los Fuegos
-      Score : 0.92 / 4.00
-              • energy similarity 0.92 (song=0.87, target=0.95)
-  ----------------------------------------------------
-  #5  Bounce Theory by Def Cadence
-      Score : 0.89 / 4.00
-              • energy similarity 0.89 (song=0.84, target=0.95)
-  ----------------------------------------------------
-
-======================================================
-  Profile : Conflicting: High-Energy but Chill Mood
-  Prefs   : {'genre': 'ambient', 'mood': 'chill', 'energy': 0.95}
-======================================================
-  #1  Spacewalk Thoughts by Orbit Bloom
-      Score : 3.33 / 4.00
-              • genre match (ambient, +2.0)
-              • mood match (chill, +1.0)
-              • energy similarity 0.33 (song=0.28, target=0.95)
-  ----------------------------------------------------
-  #2  Midnight Coding by LoRoom
-      Score : 1.47 / 4.00
-              • mood match (chill, +1.0)
-              • energy similarity 0.47 (song=0.42, target=0.95)
-  ----------------------------------------------------
-  #3  Library Rain by Paper Lanterns
-      Score : 1.40 / 4.00
-              • mood match (chill, +1.0)
-              • energy similarity 0.40 (song=0.35, target=0.95)
-  ----------------------------------------------------
-  #4  Gym Hero by Max Pulse
-      Score : 0.98 / 4.00
-              • energy similarity 0.98 (song=0.93, target=0.95)
-  ----------------------------------------------------
-  #5  Hardwired by Iron Circuit
-      Score : 0.98 / 4.00
-              • energy similarity 0.98 (song=0.97, target=0.95)
-  ----------------------------------------------------
-
-======================================================
-  Profile : Ghost Genre (country)
-  Prefs   : {'genre': 'country', 'mood': 'happy', 'energy': 0.7}
-======================================================
-  #1  Rooftop Lights by Indigo Parade
-      Score : 1.94 / 4.00
-              • mood match (happy, +1.0)
-              • energy similarity 0.94 (song=0.76, target=0.7)
-  ----------------------------------------------------
-  #2  Sunrise City by Neon Echo
-      Score : 1.88 / 4.00
-              • mood match (happy, +1.0)
-              • energy similarity 0.88 (song=0.82, target=0.7)
-  ----------------------------------------------------
-  #3  Night Drive Loop by Neon Echo
-      Score : 0.95 / 4.00
-              • energy similarity 0.95 (song=0.75, target=0.7)
-  ----------------------------------------------------
-  #4  Soul Kitchen by Velvet Browne
-      Score : 0.92 / 4.00
-              • energy similarity 0.92 (song=0.62, target=0.7)
-  ----------------------------------------------------
-  #5  Empty Hallways by Grayscale Theory
-      Score : 0.90 / 4.00
-              • energy similarity 0.90 (song=0.6, target=0.7)
-  ----------------------------------------------------
-
-======================================================
-  Profile : Floor Energy
-  Prefs   : {'genre': 'lofi', 'mood': 'focused', 'energy': 0.0}
-======================================================
-  #1  Focus Flow by LoRoom
-      Score : 3.60 / 4.00
-              • genre match (lofi, +2.0)
-              • mood match (focused, +1.0)
-              • energy similarity 0.60 (song=0.4, target=0.0)
-  ----------------------------------------------------
-  #2  Library Rain by Paper Lanterns
-      Score : 2.65 / 4.00
-              • genre match (lofi, +2.0)
-              • energy similarity 0.65 (song=0.35, target=0.0)
-  ----------------------------------------------------
-  #3  Midnight Coding by LoRoom
-      Score : 2.58 / 4.00
-              • genre match (lofi, +2.0)
-              • energy similarity 0.58 (song=0.42, target=0.0)
-  ----------------------------------------------------
-  #4  Glacier Blue by Fjord Ensemble
-      Score : 0.80 / 4.00
-              • energy similarity 0.80 (song=0.2, target=0.0)
-  ----------------------------------------------------
-  #5  Bamboo Wind by Koto Dreams
-      Score : 0.75 / 4.00
-              • energy similarity 0.75 (song=0.25, target=0.0)
-  ----------------------------------------------------
-
-
-
-
-
-
-
-
-
-
-
-
----
-
-## Getting Started
-
-### Setup
-
-1. Create a virtual environment (optional but recommended):
-
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate      # Mac or Linux
-   .venv\Scripts\activate         # Windows
-
-2. Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-3. Run the app:
-
-```bash
-python -m src.main
-```
-
-### Running Tests
-
-Run the starter tests with:
-
-```bash
-pytest
-```
-
-You can add more tests in `tests/test_recommender.py`.
-
----
-
-## Experiments You Tried
-
-Use this section to document the experiments you ran. For example:
-
-- What happened when you changed the weight on genre from 2.0 to 0.5
-- What happened when you added tempo or valence to the score
-- How did your system behave for different types of users
-
----
-
-## Limitations and Risks
-
-Summarize some limitations of your recommender.
-
-Examples:
-
-- It only works on a tiny catalog
-- It does not understand lyrics or language
-- It might over favor one genre or mood
-
-You will go deeper on this in your model card.
-
----
-
-## Reflection
-
-Read and complete `model_card.md`:
-
-[**Model Card**](model_card.md)
-
-Write 1 to 2 paragraphs here about what you learned:
-
-- about how recommenders turn data into predictions
-- about where bias or unfairness could show up in systems like this
-
-
----
-
-## 7. `model_card_template.md`
-
-Combines reflection and model card framing from the Module 3 guidance. :contentReference[oaicite:2]{index=2}  
-
-```markdown
-# 🎧 Model Card - Music Recommender Simulation
-
-## 1. Model Name
-
-Give your recommender a name, for example:
-
-> VibeFinder 1.0
-
----
-
-## 2. Intended Use
-
-- What is this system trying to do
-- Who is it for
-
-Example:
-
-> This model suggests 3 to 5 songs from a small catalog based on a user's preferred genre, mood, and energy level. It is for classroom exploration only, not for real users.
-
----
-
-## 3. How It Works (Short Explanation)
-
-Describe your scoring logic in plain language.
-
-- What features of each song does it consider
-- What information about the user does it use
-- How does it turn those into a number
-
-Try to avoid code in this section, treat it like an explanation to a non programmer.
-
----
-
-## 4. Data
-
-Describe your dataset.
-
-- How many songs are in `data/songs.csv`
-- Did you add or remove any songs
-- What kinds of genres or moods are represented
-- Whose taste does this data mostly reflect
-
----
-
-## 5. Strengths
-
-Where does your recommender work well
-
-You can think about:
-- Situations where the top results "felt right"
-- Particular user profiles it served well
-- Simplicity or transparency benefits
-
----
-
-## 6. Limitations and Bias
-
-Where does your recommender struggle
-
-Some prompts:
-- Does it ignore some genres or moods
-- Does it treat all users as if they have the same taste shape
-- Is it biased toward high energy or one genre by default
-- How could this be unfair if used in a real product
-
----
-
-## 7. Evaluation
-
-How did you check your system
-
-Examples:
-- You tried multiple user profiles and wrote down whether the results matched your expectations
-- You compared your simulation to what a real app like Spotify or YouTube tends to recommend
-- You wrote tests for your scoring logic
-
-You do not need a numeric metric, but if you used one, explain what it measures.
-
----
-
-## 8. Future Work
-
-If you had more time, how would you improve this recommender
-
-Examples:
-
-- Add support for multiple users and "group vibe" recommendations
-- Balance diversity of songs instead of always picking the closest match
-- Use more features, like tempo ranges or lyric themes
-
----
-
-## 9. Personal Reflection
-
-A few sentences about what you learned:
-
-- What surprised you about how your system behaved
-- How did building this change how you think about real music recommenders
-- Where do you think human judgment still matters, even if the model seems "smart"
+## Title and Summary
+Wavefinder is an intelligent, RAG-powered (Retrieval-Augmented Generation) music recommendation engine that provides grounded, conversational suggestions based on a user’s mood, vibe, or specific metadata. Unlike standard LLMs that may hallucinate non-existent songs, Wavefinder uses a hybrid retrieval pipeline—combining semantic vector search for abstract "vibes" with TF-IDF rankings for popularity and chart-based queries—to ensure every recommendation is backed by real-world data.
 
+This project matters because it solves the "grounding problem" in AI-driven discovery; by forcing the LLM to cite a specific, retrieved catalog, the system provides trustworthy recommendations that align perfectly with the user's specific audio preferences and the actual constraints of the music library.
+
+Key Technical Features (System design in /assets summary):
+
+Hybrid Retrieval Pipeline: Uses a heuristic router to automatically switch between semantic search (ChromaDB) and popularity-weighted keyword search (TF-IDF) based on the user's query.
+
+Contextual Ingestion: Transforms raw Spotify metrics into descriptive natural-language blurbs to bridge the gap between numerical audio data and human-centric queries.
+
+Grounded Generation: Utilizes Google Gemini to synthesize recommendations, restricted by a strict system prompt to only suggest tracks found within the retrieved data.
+
+Citation Guardrails: Includes a post-generation verification step that checks LLM outputs against the retrieved catalog to detect and flag any potential hallucinations.
+
+
+
+## Setup Instructions
+To run this project locally, follow these steps:
+
+1.  **Clone the Repository:**
+    ```bash
+    git clone https://github.com/rishis123/applied-ai-system-project.git
+    cd applied-ai-system-project
+    ```
+2.  **Install Dependencies:**
+    Ensure you have Python 3.9+ installed.
+    ```bash
+    pip install -r requirements.txt
+    ```
+3.  **Environment Variables:**
+    Create a `.env` file in the root directory and add your API key:
+    ```env
+    GEMINI_API_KEY=your_actual_key_here
+    ```
+4.  **Launch the System:**
+    ```bash
+    uvicorn rag.server:app --reload
+    ```
+
+## Sample Interactions
+
+### Example 1: 
+* **Input:** "High-energy workout tracks"
+* **AI Output:** "Here are some high-energy tracks from your catalog that are well-suited for a workout. I've focused on tracks explicitly labeled as high-energy, with genres like electronic, pop, and gaming often providing the driving rhythm needed for exercise. While most have a good tempo for workouts, I've noted any instances where the tempo might be a bit lower than expected for a "high-energy" track.
+
+[6] "Get Up (Rattle) [feat. Far East Movement] - Vocal Edit" by Bingo Players, Far East Movement — This track boasts the highest energy level in the catalog (0.98) and a strong dance beat, making it ideal for high-intensity workouts.
+[4] "This Is What It Feels Like" by Armin van Buuren, Trevor Guthrie — A high-energy electronic track with a driving tempo (129.88 BPM) that's great for maintaining a steady pace during exercise.
+[2] "Around the World" by Daft Punk — This iconic high-energy electronic track has exceptional danceability (0.96) and a consistent beat perfect for a workout.
+[7] "Miles On It" by Marshmello, Kane Brown — A high-energy gaming track with a good tempo (129.96 BPM) and an upbeat vibe to keep you motivated.
+[3] "Push Up - Main Edit" by Creeds — While labeled as high-energy (0.83) and from the gaming genre, note that its tempo (75.02 BPM) is lower, which might be better for power-focused or slower, intense movements rather than high-speed cardio."
+
+### Example 2: 
+* **Input:** "Chill indie music for a rainy day"
+* **AI Output:** "I've selected tracks from the catalog that best capture the "chill indie music for a rainy day" vibe. While strictly "indie" genres are few, I've prioritized songs from artists with indie sensibilities or genres like alternative and ambient that fit the desired mood, focusing on lower energy and melancholic valence, noting where the "chill" aspect might be slightly less prominent due to tempo or energy.
+
+Here are your recommendations:
+
+[4] "Sparks" by Coldplay — This ambient track perfectly embodies the "chill rainy day" mood with its low energy and melancholic tone, from an artist often associated with indie sensibilities.
+[9] "Paradise" by Coldplay — With a mid-energy level and melancholic valence, this soft pop track offers a reflective atmosphere well-suited for a rainy day, from an indie-adjacent artist.
+[5] "Sweater Weather" by The Neighbourhood — While more energetic than strictly "chill," this track is a strong indie-pop genre match with a melancholic undertone that fits the rainy day mood.
+[1] "S*x, Drugs, Etc." by Beach Weather — This alternative rock track provides a strong "indie" genre match, though its higher energy might be less "chill" than your request, it still offers a compelling mood."
+
+### Example 3: 
+* **Input:** "Happy songs with high valence"
+* **AI Output:** "I've identified several tracks from the catalog that perfectly match your request for happy songs with high valence. These recommendations are all described as "happy and upbeat" based on their valence scores, ensuring they convey a positive mood.
+
+Here are your recommendations:
+
+[7] "Best of My Love" by The Emotions — This classic pop track boasts the highest valence, making it a truly upbeat and happy choice.
+[5] "CUTE DEPRESSED" by Dyan Dxddy — Despite the name, this gaming track has a very high valence and is described as happy and upbeat.
+[9] "Taste" by Sabrina Carpenter — A high-energy pop track with a strong happy and upbeat valence score.
+[6] "Mood (feat. iann dior)" by 24kGoldn, iann dior — This gaming track is high-energy and clearly categorized as happy and upbeat.
+[8] "Taste" by Sabrina Carpenter — Another high-energy pop track from Sabrina Carpenter, also rated as happy and upbeat.
+[4] "Bed Chem" by Sabrina Carpenter — A high-energy pop track from Sabrina Carpenter, noted for its happy and upbeat valence.
+[1] "Happier (feat. Clementine Douglas)" by The Blessed Madonna, Clementine Douglas — This electronic track is high-energy and explicitly labeled as happy and upbeat."
+
+### AI Reliability & Testing Summary
+Primarily determined through human evaluation of AI output - 6/6 tests passed for quality, even with sparse music within a genre/type. The best advice I have is give clear, specific information in your query, to improve the semantic search quality.
+
+
+## Design Decisions
+1. Natural Language Data Synthesis (The "Blurb" Strategy)
+Rather than simply storing raw numerical data (e.g., energy: 0.8) in the vector database, the system converts track metadata into descriptive natural-language sentences.
+
+Why: This bridges the gap between how users describe music (using adjectives like "high-energy" or "melancholic") and how the data is stored.
+
+Implementation: The track_blurb function uses conditional logic to translate raw scores into human descriptors, such as mapping a high valence score to "happy and upbeat".
+
+2. Hybrid Retrieval Pipeline
+The system does not rely on a single search method; it uses a heuristic router to choose the best tool for the job.
+
+Semantic Search (ChromaDB): Used for abstract, mood-based queries like "something chill for studying".
+
+TF-IDF + Popularity Ranking: Used when users ask for "popular," "top," or "trending" tracks.
+
+Trade-off: This adds complexity to the code but prevents semantic search from missing literal keyword matches or popularity signals that a pure vector search might overlook.
+
+3. Weighted Popularity Scoring
+In the TF-IDF retrieval mode, the system calculates a combined score rather than relying solely on keyword relevance.
+
+Formula: The score is calculated as 0.7×tfidf_cosine_similarity+0.3×normalized_popularity.
+
+Impact: This ensures that if multiple songs match a keyword, the system prioritizes the one that is more likely to be a "hit," reflecting real-world user preferences.
+
+4. Hallucination Guardrails & Grounding
+To prevent the LLM from suggesting songs that don't exist in the local dataset, the system implements a "closed-loop" logic.
+
+Numbered Cataloging: Retrieved tracks are formatted into a numbered list before being sent to the LLM, forcing the model to select from a specific set of options.
+
+Post-Generation Verification: The _verify_response function scans the AI's output for citations. If the AI references a number outside the retrieved set (e.g., citing track "[11]" when only 10 were provided), it flags the error to the user.
+
+5. Robust Data Ingestion & Error Handling
+The ingestion process includes specific "defensive" coding decisions to handle real-world CSV data inconsistencies.
+
+Safe Conversions: Functions like safe_cmp and safe_display prevent the system from crashing if technical audio metrics are missing or improperly formatted in the CSV.
+
+Collision Prevention: The system explicitly renames the CSV's type column to spotify_type to avoid metadata conflicts with internal ChromaDB keys.
+
+6. Evaluation Design (Batch Mode)
+The project includes a dedicated --batch mode that allows for testing without an active LLM connection.
+
+Purpose: This enables you to test the retrieval logic and scoring accuracy against "built-in profiles" (like "High-Energy Pop" or "Chill Lofi") without spending API credits on Gemini.
+
+Learning: This separation of concerns allows for debugging the retrieval (finding the right data) independently from the generation (explaining the data).
+
+## Reliability and Evaluation
+To ensure the system provides accurate musical data, I implemented the following:
+
+### Automated Validation: 
+A unit test script verifies that every track recommended by the AI exists in the local database.
+
+### Citation Guardrails: 
+A verification function that scans for out-of-range citations to prevent the LLM from suggesting "ghost" tracks.
+
+
+
+
+
+## Reflection and Ethics
+
+### Limitations and Biases
+The system is limited by the small dataset from Kaggle, and can be improved by using a Spotify API or more comprehensive dataset.
+
+
+### Misuse and Prevention
+Make sure you don't commit your keys or other sensitive information -- follow standard env and gitignore practice.
+
+### AI Collaboration
+During development, AI (primarily Claude Code) acted as a junior engineer/primary programmer while I provided insight, reviewed work, and challenged results.
+* **Helpful Suggestion:** It really helped with the UI, which I didn't need to modify much.
+* **Flawed Suggestion:** It recommends earlier Gemini flash versions, and struggled to download Kaggle datasets using the API.
+
+### Conclusion
+This project taught me the importance of the information retrieval pipelines backing RAG. The primary difference between this and far worse/better models is the data availability and cleanliness. genAI is a useful helper but is upper-bounded by your prompt quality and how you provide context.

@@ -13,3 +13,9 @@ venv/
 
 # Pytest cache
 .pytest_cache/
+
+# Environment secrets
+.env
+
+# ChromaDB vector store
+chroma_db/

@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Wavefinder — Music Recommender</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;800&family=DM+Sans:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0a0a0f;
+      --surface:   #13131c;
+      --border:    #222230;
+      --accent:    #00e5a0;
+      --accent2:   #7b5cfa;
+      --text:      #e8e8f0;
+      --muted:     #6b6b80;
+      --card-bg:   #16161f;
+      --radius:    14px;
+    }
+
+    html, body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 0;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      top: -20vh; left: 50%;
+      transform: translateX(-50%);
+      width: 80vw; height: 60vh;
+      background: radial-gradient(ellipse at center,
+        rgba(0,229,160,0.06) 0%,
+        rgba(123,92,250,0.04) 50%,
+        transparent 70%);
+      pointer-events: none; z-index: 0;
+    }
+
+    .wrap {
+      position: relative; z-index: 1;
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 60px 24px 100px;
+    }
+
+    header { margin-bottom: 56px; }
+
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: clamp(2.4rem, 6vw, 3.6rem);
+      letter-spacing: -0.03em;
+      line-height: 1;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .tagline {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 1rem;
+      letter-spacing: 0.01em;
+    }
+
+    .search-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 48px;
+    }
+
+    .search-input {
+      flex: 1;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1rem;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .search-input::placeholder { color: var(--muted); }
+
+    .search-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0,229,160,0.1);
+    }
+
+    .search-btn {
+      background: var(--accent);
+      color: #0a0a0f;
+      border: none;
+      border-radius: var(--radius);
+      padding: 16px 28px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.15s;
+      white-space: nowrap;
+    }
+
+    .search-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+    .search-btn:active { transform: translateY(0); }
+    .search-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    .pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 48px;
+    }
+
+    .pill {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 8px 16px;
+      font-size: 0.83rem;
+      color: var(--muted);
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+
+    .pill:hover { border-color: var(--accent); color: var(--accent); }
+
+    #answer-section { display: none; }
+
+    .answer-label {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 14px;
+    }
+
+    .answer-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 24px 28px;
+      font-size: 0.97rem;
+      line-height: 1.75;
+      color: var(--text);
+      margin-bottom: 36px;
+      white-space: pre-wrap;
+    }
+
+    /* retrieval mode badge */
+    .mode-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(123,92,250,0.12);
+      border: 1px solid rgba(123,92,250,0.25);
+      border-radius: 100px;
+      padding: 4px 12px;
+      font-size: 0.72rem;
+      color: var(--accent2);
+      margin-bottom: 24px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .mode-badge::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent2);
+    }
+
+    .cards-label {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .card:hover { border-color: var(--accent2); transform: translateY(-2px); }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+
+    .card-track {
+      font-family: 'Syne', sans-serif;
+      font-weight: 600;
+      font-size: 0.95rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+    }
+
+    /* similarity score pill on the card */
+    .card-score {
+      flex-shrink: 0;
+      font-size: 0.68rem;
+      font-family: 'Syne', sans-serif;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 100px;
+      background: rgba(0,229,160,0.1);
+      color: var(--accent);
+      white-space: nowrap;
+    }
+
+    .card-artist {
+      font-size: 0.83rem;
+      color: var(--muted);
+      margin-bottom: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-genres {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .genre-tag {
+      background: rgba(123,92,250,0.12);
+      color: var(--accent2);
+      border-radius: 6px;
+      padding: 3px 8px;
+      font-size: 0.7rem;
+    }
+
+    .subgenre-tag {
+      background: rgba(123,92,250,0.06);
+      color: var(--muted);
+      border-radius: 6px;
+      padding: 3px 8px;
+      font-size: 0.7rem;
+    }
+
+    /* audio feature bars */
+    .features {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 12px;
+    }
+
+    .feature-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .feature-label {
+      font-size: 0.67rem;
+      color: var(--muted);
+      width: 58px;
+      flex-shrink: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .feature-bar-wrap {
+      flex: 1;
+      height: 4px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .feature-bar {
+      height: 100%;
+      border-radius: 2px;
+      background: linear-gradient(90deg, var(--accent2), var(--accent));
+      transition: width 0.6s ease;
+    }
+
+    .feature-val {
+      font-size: 0.67rem;
+      color: var(--text);
+      width: 32px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    /* stat chips for tempo / loudness / popularity */
+    .card-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .chip {
+      background: rgba(255,255,255,0.04);
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+
+    .chip span { color: var(--text); }
+
+    .loader {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 32px;
+    }
+
+    .loader.active { display: flex; }
+
+    .dots span {
+      display: inline-block;
+      width: 6px; height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: bounce 1.2s infinite ease-in-out;
+    }
+    .dots span:nth-child(2) { animation-delay: 0.2s; }
+    .dots span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+
+    .error-msg {
+      display: none;
+      color: #ff6b6b;
+      background: rgba(255,107,107,0.08);
+      border: 1px solid rgba(255,107,107,0.2);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      font-size: 0.9rem;
+      margin-bottom: 24px;
+    }
+
+    @media (max-width: 600px) {
+      .search-row { flex-direction: column; }
+      .wrap { padding: 40px 16px 80px; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">Wavefinder</div>
+    <p class="tagline">RAG-powered music recommendations from the Spotify dataset</p>
+  </header>
+
+  <div class="search-row">
+    <input
+      class="search-input"
+      id="queryInput"
+      type="text"
+      placeholder="e.g. high-energy tracks for a morning run…"
+      autocomplete="off"
+    />
+    <button class="search-btn" id="searchBtn" onclick="search()">Find music</button>
+  </div>
+
+  <div class="pills" id="pills"></div>
+
+  <div class="loader" id="loader">
+    <div class="dots"><span></span><span></span><span></span></div>
+    Searching the dataset…
+  </div>
+
+  <div class="error-msg" id="errorMsg"></div>
+
+  <div id="answer-section">
+    <p class="answer-label">Recommendation</p>
+    <div id="modeBadge" class="mode-badge"></div>
+    <div class="answer-box" id="answerBox"></div>
+    <p class="cards-label">Retrieved tracks</p>
+    <div class="cards-grid" id="cardsGrid"></div>
+  </div>
+</div>
+
+<script>
+  const SUGGESTIONS = [
+    "High-energy workout tracks",
+    "Sad, acoustic songs for a rainy day",
+    "Upbeat pop songs to dance to",
+    "Chill instrumental background music",
+    "Fast tempo hip-hop tracks",
+    "Happy songs with high valence",
+    "Lo-fi tracks with low speechiness",
+    "Classic rock with high energy",
+  ];
+
+  const pillsEl = document.getElementById("pills");
+  SUGGESTIONS.forEach(s => {
+    const pill = document.createElement("button");
+    pill.className = "pill";
+    pill.textContent = s;
+    pill.onclick = () => {
+      document.getElementById("queryInput").value = s;
+      search();
+    };
+    pillsEl.appendChild(pill);
+  });
+
+  document.getElementById("queryInput").addEventListener("keydown", e => {
+    if (e.key === "Enter") search();
+  });
+
+  async function search() {
+    const input = document.getElementById("queryInput");
+    const query = input.value.trim();
+    if (!query) return;
+
+    const btn        = document.getElementById("searchBtn");
+    const loader     = document.getElementById("loader");
+    const errorMsg   = document.getElementById("errorMsg");
+    const answerSection = document.getElementById("answer-section");
+    const answerBox  = document.getElementById("answerBox");
+    const cardsGrid  = document.getElementById("cardsGrid");
+    const modeBadge  = document.getElementById("modeBadge");
+
+    btn.disabled = true;
+    loader.classList.add("active");
+    errorMsg.style.display = "none";
+    answerSection.style.display = "none";
+    cardsGrid.innerHTML = "";
+
+    try {
+      const res = await fetch("/recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: query }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Server error");
+      }
+
+      const data = await res.json();
+
+      // show retrieval mode badge
+      modeBadge.textContent = data.retrieval_mode === "tfidf"
+        ? "TF-IDF + Popularity ranking"
+        : "Semantic search";
+
+      answerBox.textContent = data.answer;
+
+      (data.tracks || []).forEach(t => {
+        const name      = t.track_name   || "—";
+        const artist    = t.track_artist  || "Unknown artist";
+        const genre     = t.playlist_genre    || "";
+        const subgenre  = t.playlist_subgenre || "";
+        const score     = t.similarity_score;
+
+        // score badge: colour shifts from muted→green based on value
+        const scoreLabel = (score !== undefined && score !== null)
+          ? (score * 100).toFixed(1) + "% match"
+          : null;
+
+        // audio features rendered as bars (0–1 scale)
+        const barFeatures = [
+          { label: "Energy",    val: t.energy },
+          { label: "Dance",     val: t.danceability },
+          { label: "Valence",   val: t.valence },
+          { label: "Acoustic",  val: t.acousticness },
+        ];
+
+        // scalar stats rendered as chips
+        const chips = [
+          { label: "Tempo",      val: t.tempo,            unit: " BPM" },
+          { label: "Loudness",   val: t.loudness,         unit: " dB"  },
+          { label: "Popularity", val: t.track_popularity, unit: ""     },
+        ];
+
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <div class="card-header">
+            <div class="card-track" title="${esc(name)}">${esc(name)}</div>
+            ${scoreLabel ? `<div class="card-score">${esc(scoreLabel)}</div>` : ""}
+          </div>
+          <div class="card-artist">${esc(artist)}</div>
+
+          <div class="card-genres">
+            ${genre    ? `<span class="genre-tag">${esc(genre)}</span>`    : ""}
+            ${subgenre ? `<span class="subgenre-tag">${esc(subgenre)}</span>` : ""}
+          </div>
+
+          <div class="features">
+            ${barFeatures.map(f => featureBar(f.label, f.val)).join("")}
+          </div>
+
+          <div class="card-chips">
+            ${chips.map(c => chip(c.label, c.val, c.unit)).join("")}
+          </div>
+        `;
+        cardsGrid.appendChild(card);
+      });
+
+      answerSection.style.display = "block";
+
+    } catch (err) {
+      errorMsg.textContent = "Error: " + err.message;
+      errorMsg.style.display = "block";
+    } finally {
+      btn.disabled = false;
+      loader.classList.remove("active");
+    }
+  }
+
+  /**
+   * Render an audio feature as a labelled progress bar.
+   * val is expected 0–1. Returns empty string if missing.
+   */
+  function featureBar(label, val) {
+    if (val === undefined || val === null || val === "" || val === "N/A") return "";
+    const pct = Math.min(100, Math.max(0, parseFloat(val) * 100)).toFixed(0);
+    return `
+      <div class="feature-row">
+        <span class="feature-label">${esc(label)}</span>
+        <div class="feature-bar-wrap">
+          <div class="feature-bar" style="width:${pct}%"></div>
+        </div>
+        <span class="feature-val">${pct}%</span>
+      </div>`;
+  }
+
+  /**
+   * Render a scalar stat (tempo, loudness, popularity) as a chip.
+   * Returns empty string if missing.
+   */
+  function chip(label, val, unit = "") {
+    if (val === undefined || val === null || val === "" || val === "N/A") return "";
+    const display = typeof val === "number" && !Number.isInteger(val)
+      ? val.toFixed(1)
+      : val;
+    return `<span class="chip">${esc(label)} <span>${esc(String(display))}${esc(unit)}</span></span>`;
+  }
+
+  function esc(str) {
+    return String(str ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+</script>
+</body>
+</html>

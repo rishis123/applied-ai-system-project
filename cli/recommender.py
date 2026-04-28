@@ -68,7 +68,7 @@ class Recommender:
 def load_songs(csv_path: str) -> List[Dict]:
     """
     Loads songs from a CSV file.
-    Required by src/main.py
+    Required by cli/main.py
     """
     songs = []
     with open(csv_path, newline="") as f:
