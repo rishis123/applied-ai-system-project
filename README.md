@@ -4,6 +4,8 @@
 **WaveFinder** was originally developed as a CLI tool, with limited music options, that recommends music based on proximity to several numerical fields, including energy and tempo. It was very limited in capacity and scope, and lacked insight based on genre and semantics.
 
 ---
+## Loom Link
+https://www.loom.com/share/837b4819f0db4fb288351536277cd294
 
 ## Title and Summary
 Wavefinder is an intelligent, RAG-powered (Retrieval-Augmented Generation) music recommendation engine that provides grounded, conversational suggestions based on a user’s mood, vibe, or specific metadata. Unlike standard LLMs that may hallucinate non-existent songs, Wavefinder uses a hybrid retrieval pipeline—combining semantic vector search for abstract "vibes" with TF-IDF rankings for popularity and chart-based queries—to ensure every recommendation is backed by real-world data.
